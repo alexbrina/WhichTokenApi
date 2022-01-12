@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -7,6 +8,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System;
+using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
 
 namespace WhichTokenApi
 {
@@ -21,8 +25,8 @@ namespace WhichTokenApi
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
+            services.AddAuthentication()
+                .AddJwtBearer("Regular", options =>
                 {
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
@@ -31,11 +35,41 @@ namespace WhichTokenApi
                         ValidateIssuer = true,
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = "WhichTokenApi",
-                        ValidAudience = "WhichTokenApiClient",
+                        ValidAudience = "WhichTokenApiRegularClient",
                         ValidateLifetime = true,
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes("asdv234234^&%&^%&^hjsdfb2%%%"))
                     };
+                })
+                .AddJwtBearer("Alternative", options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ClockSkew = TokenValidationParameters.DefaultClockSkew,
+                        ValidateAudience = true,
+                        ValidateIssuer = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = "WhichTokenApi",
+                        ValidAudience = "WhichTokenApiAlternativeClient",
+                        ValidateLifetime = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes("asdv234234^&%&^%&^hjsdfb2%%%"))
+                    };
+                });
+
+            // now we need to determine the authorization policies by hand
+            // notice that there is one default policy
+            services.AddAuthorization(options =>
+                {
+                    options.DefaultPolicy = new AuthorizationPolicyBuilder()
+                        .RequireAuthenticatedUser()
+                        .AddAuthenticationSchemes("Regular")
+                        .Build();
+
+                    options.AddPolicy("Alternative", new AuthorizationPolicyBuilder()
+                        .RequireAuthenticatedUser()
+                        .AddAuthenticationSchemes("Alternative")
+                        .Build());
                 });
 
             services.AddControllers();

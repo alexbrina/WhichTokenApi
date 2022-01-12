@@ -8,7 +8,7 @@ namespace WhichTokenApi
 {
     public static class Jwt
     {
-        public static string GenerateRegularToken()
+        public static string GenerateRegularToken(string audience)
         {
             var mySecret = "asdv234234^&%&^%&^hjsdfb2%%%";
             var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(mySecret));
@@ -22,7 +22,7 @@ namespace WhichTokenApi
                 }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 Issuer = "WhichTokenApi",
-                Audience = "WhichTokenApiClient",
+                Audience = audience,
                 SigningCredentials = new SigningCredentials(mySecurityKey,
                     SecurityAlgorithms.HmacSha256Signature)
             };
