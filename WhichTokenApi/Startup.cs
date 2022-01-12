@@ -2,14 +2,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using System;
-using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 
 namespace WhichTokenApi
@@ -115,15 +114,53 @@ namespace WhichTokenApi
 
             app.UseRouting();
 
-            // without this handler requests will always return Unauthorized
+            // the UseAuthentication() middleware will call context.AuthenticateAsync(...)
+            // and populate context.User, without this, requests will always return Unauthorized
+            // when they reach the UseAuthorization() middleware
+
+            // curiously, this will only authenticate when UseAuthorization() runs
+            // if you remove UseAuthorization() authentication never happens
             app.UseAuthentication();
 
+            // by checking context.User in various points you can check is auth status
+            app.Use(async (context, next) =>
+            {
+                var data = GetUserData(context, "", "Entering: Between UseAuthentication() and UseAuthorization()");
+
+                await next();
+
+                data = GetUserData(context, data, "Returning: Between UseAuthentication() and UseAuthorization()");
+                await ResponseWrite(context, data);
+            });
+
             app.UseAuthorization();
+
+            app.Use(async (context, next) =>
+            {
+                var data = GetUserData(context, "", "Entering: After UseAuthorization()");
+
+                await next();
+
+                data = GetUserData(context, data, "Returning: After UseAuthorization()");
+                await ResponseWrite(context, data);
+            });
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
             });
+        }
+
+        private static string GetUserData(HttpContext context, string data, string step)
+        {
+            data += $"\n\n{step}: IsAuthenticated = {context.User.Identity.IsAuthenticated}";
+            return data;
+        }
+
+        private static ValueTask ResponseWrite(HttpContext context, string data)
+        {
+            var bytes = Encoding.UTF8.GetBytes(data);
+            return context.Response.Body.WriteAsync(bytes);
         }
     }
 }

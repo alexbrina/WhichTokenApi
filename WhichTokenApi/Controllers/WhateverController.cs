@@ -19,7 +19,7 @@ namespace WhichTokenApi.Controllers
         [HttpPost("regular/login")]
         public IActionResult RegularLogin()
         {
-            return Ok(Jwt.GenerateRegularToken("WhichTokenApiRegularClient"));
+            return Ok(Jwt.GenerateToken("WhichTokenApiRegularClient"));
         }
 
         // here we use the default authorization policy
@@ -34,7 +34,7 @@ namespace WhichTokenApi.Controllers
         [HttpPost("alternative/login")]
         public IActionResult AlternativeLogin()
         {
-            return Ok(Jwt.GenerateRegularToken("WhichTokenApiAlternativeClient"));
+            return Ok(Jwt.GenerateToken("WhichTokenApiAlternativeClient"));
         }
 
         // here we use the alternative authorization policy

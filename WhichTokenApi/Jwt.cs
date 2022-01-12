@@ -8,7 +8,7 @@ namespace WhichTokenApi
 {
     public static class Jwt
     {
-        public static string GenerateRegularToken(string audience)
+        public static string GenerateToken(string audience)
         {
             var mySecret = "asdv234234^&%&^%&^hjsdfb2%%%";
             var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(mySecret));
