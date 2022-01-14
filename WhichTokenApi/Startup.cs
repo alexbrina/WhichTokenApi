@@ -118,8 +118,9 @@ namespace WhichTokenApi
             // and populate context.User, without this, requests will always return Unauthorized
             // when they reach the UseAuthorization() middleware
 
-            // curiously, this will only authenticate when UseAuthorization() runs
-            // if you remove UseAuthorization() authentication never happens
+            // curiously, this will only authenticate when some endpoint with the
+            // Authorize attribute will run (I guess it's determined in UseRouting()).
+            // And if you remove UseAuthorization() authentication never happens
             app.UseAuthentication();
 
             // by checking context.User in various points you can check is auth status

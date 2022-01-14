@@ -44,5 +44,19 @@ namespace WhichTokenApi.Controllers
         {
             return Ok("👍");
         }
+
+        // here we validate alternative token manually
+        [HttpGet("alternative/manualvalidation")]
+        public IActionResult AlternativeManualEndpoint()
+        {
+            if (Jwt.ValidateToken(HttpContext.Request, "WhichTokenApiAlternativeClient"))
+            {
+                return Ok("👍");
+            }
+            else
+            {
+                return Unauthorized();
+            }
+        }
     }
 }
