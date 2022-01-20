@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace WhichTokenApi.Controllers
 {
@@ -8,18 +7,18 @@ namespace WhichTokenApi.Controllers
     [Route("[controller]")]
     public class WhateverController : ControllerBase
     {
-        private readonly ILogger<WhateverController> _logger;
+        private readonly Jwt jwt;
 
-        public WhateverController(ILogger<WhateverController> logger)
+        public WhateverController(Jwt jwt)
         {
-            _logger = logger;
+            this.jwt = jwt;
         }
 
         [AllowAnonymous]
         [HttpPost("regular/login")]
         public IActionResult RegularLogin()
         {
-            return Ok(Jwt.GenerateToken("WhichTokenApiRegularClient"));
+            return Ok(jwt.GenerateToken("WhichTokenApiRegularClient"));
         }
 
         // here we use the default authorization policy
@@ -34,7 +33,7 @@ namespace WhichTokenApi.Controllers
         [HttpPost("alternative/login")]
         public IActionResult AlternativeLogin()
         {
-            return Ok(Jwt.GenerateToken("WhichTokenApiAlternativeClient"));
+            return Ok(jwt.GenerateToken("WhichTokenApiAlternativeClient"));
         }
 
         // here we use the alternative authorization policy
@@ -49,7 +48,7 @@ namespace WhichTokenApi.Controllers
         [HttpGet("alternative/manualvalidation")]
         public IActionResult AlternativeManualEndpoint()
         {
-            if (Jwt.ValidateToken(HttpContext.Request, "WhichTokenApiAlternativeClient"))
+            if (jwt.ValidateToken(HttpContext.Request, "WhichTokenApiAlternativeClient"))
             {
                 return Ok("👍");
             }
@@ -63,14 +62,14 @@ namespace WhichTokenApi.Controllers
         [HttpPost("ecdsa/login")]
         public IActionResult ECDsaLogin()
         {
-            return Ok(Jwt.GenerateECDsaToken("WhichTokenApiECDsaClient"));
+            return Ok(jwt.GenerateECDsaToken("WhichTokenApiECDsaClient"));
         }
 
         // here we validate ECDsa signed token manually
         [HttpGet("ecdsa/manualvalidation")]
         public IActionResult ECDsaManualEndpoint()
         {
-            if (Jwt.ValidateECDsaToken(HttpContext.Request, "WhichTokenApiECDsaClient"))
+            if (jwt.ValidateECDsaToken(HttpContext.Request, "WhichTokenApiECDsaClient"))
             {
                 return Ok("👍");
             }

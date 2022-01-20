@@ -6,34 +6,45 @@ using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace WhichTokenApi
 {
-    public static class Jwt
+    public sealed class Jwt : IDisposable
     {
-        public static string Secret { get; set; }
-        public static string ECDsaCertificateFileName { get; set; }
+        private readonly string secret;
+        private readonly ECDsa privateKey;
+        private readonly ECDsa publicKey;
 
-        private static X509Certificate2 _certificate;
-        private static X509Certificate2 Certificate
+        public Jwt(string secret, string certificateFileName = null)
         {
-            get
+            if (string.IsNullOrWhiteSpace(secret))
             {
-                if (_certificate == null)
-                {
-                    var file = Path.Combine(AppContext.BaseDirectory, ECDsaCertificateFileName);
-                    _certificate = new X509Certificate2(file, Secret);
-                }
+                throw new ArgumentException($"'{nameof(secret)}' cannot be " +
+                    $"null or whitespace.", nameof(secret));
+            }
 
-                return _certificate;
+            this.secret = secret;
+
+            if (certificateFileName != null)
+            {
+                var file = Path.Combine(AppContext.BaseDirectory, certificateFileName);
+                if (!File.Exists(file))
+                {
+                    throw new ArgumentException($"Certificate file '{file}' not found.",
+                        nameof(certificateFileName));
+                }
+                using var certificate = new X509Certificate2(file, secret);
+                privateKey = certificate.GetECDsaPrivateKey();
+                publicKey = certificate.GetECDsaPublicKey();
             }
         }
 
-        public static string GenerateToken(string audience)
+        public string GenerateToken(string audience)
         {
-            var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(Secret));
+            var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secret));
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -53,10 +64,15 @@ namespace WhichTokenApi
             return tokenHandler.WriteToken(token);
         }
 
-        public static string GenerateECDsaToken(string audience)
+        public string GenerateECDsaToken(string audience)
         {
-            var mySecurityKey = new ECDsaSecurityKey(Certificate.GetECDsaPrivateKey());
+            if (privateKey == null)
+            {
+                throw new InvalidOperationException("Cannot generate " +
+                    "token because required key was not informed.");
+            }
 
+            var mySecurityKey = new ECDsaSecurityKey(privateKey);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
@@ -74,12 +90,16 @@ namespace WhichTokenApi
             return token;
         }
 
-        public static bool ValidateToken(HttpRequest request, string audience)
+        public bool ValidateToken(HttpRequest request, string audience)
         {
             try
             {
-                var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(Secret));
+                if (!TryReadTokenFromHttpRequest(request, out var token))
+                {
+                    return false;
+                }
 
+                var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secret));
                 var tokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
@@ -89,11 +109,6 @@ namespace WhichTokenApi
                     ValidAudience = audience,
                     IssuerSigningKey = mySecurityKey
                 };
-
-                if (!TryReadTokenFromHttpRequest(request, out var token))
-                {
-                    return false;
-                }
 
                 var tokenHandler = new JwtSecurityTokenHandler();
                 tokenHandler.ValidateToken(token,
@@ -108,12 +123,22 @@ namespace WhichTokenApi
             }
         }
 
-        public static bool ValidateECDsaToken(HttpRequest request, string audience)
+        public bool ValidateECDsaToken(HttpRequest request, string audience)
         {
             try
             {
-                var mySecurityKey = new ECDsaSecurityKey(Certificate.GetECDsaPrivateKey());
+                if (!TryReadTokenFromHttpRequest(request, out var token))
+                {
+                    return false;
+                }
 
+                if (publicKey == null)
+                {
+                    throw new InvalidOperationException("Cannot validate " +
+                        "token because required key was not informed.");
+                }
+
+                var mySecurityKey = new ECDsaSecurityKey(publicKey);
                 var tokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
@@ -123,11 +148,6 @@ namespace WhichTokenApi
                     ValidAudience = audience,
                     IssuerSigningKey = mySecurityKey
                 };
-
-                if (!TryReadTokenFromHttpRequest(request, out var token))
-                {
-                    return false;
-                }
 
                 var tokenHandler = new JsonWebTokenHandler();
                 var result = tokenHandler.ValidateToken(token, tokenValidationParameters);
@@ -165,6 +185,12 @@ namespace WhichTokenApi
             }
 
             return true;
+        }
+
+        public void Dispose()
+        {
+            privateKey?.Dispose();
+            publicKey?.Dispose();
         }
     }
 }
