@@ -58,5 +58,26 @@ namespace WhichTokenApi.Controllers
                 return Unauthorized();
             }
         }
+
+        // here we generate ECDsa signed token
+        [HttpPost("ecdsa/login")]
+        public IActionResult ECDsaLogin()
+        {
+            return Ok(Jwt.GenerateECDsaToken("WhichTokenApiECDsaClient"));
+        }
+
+        // here we validate ECDsa signed token manually
+        [HttpGet("ecdsa/manualvalidation")]
+        public IActionResult ECDsaManualEndpoint()
+        {
+            if (Jwt.ValidateECDsaToken(HttpContext.Request, "WhichTokenApiECDsaClient"))
+            {
+                return Ok("👍");
+            }
+            else
+            {
+                return Unauthorized();
+            }
+        }
     }
 }

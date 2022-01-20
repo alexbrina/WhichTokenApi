@@ -28,6 +28,9 @@ namespace WhichTokenApi
             Jwt.Secret = Configuration.GetValue<string>("Secret")
                 ?? throw new InvalidOperationException("Encryption key not set.");
 
+            Jwt.ECDsaCertificateFileName = Configuration
+                .GetValue<string>("ECDsaCertificateFileName");
+
             services.AddAuthentication()
                 .AddJwtBearer("Regular", options =>
                 {
