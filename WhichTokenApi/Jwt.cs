@@ -10,10 +10,11 @@ namespace WhichTokenApi
 {
     public static class Jwt
     {
+        public static string Secret { get; set; }
+
         public static string GenerateToken(string audience)
         {
-            var mySecret = "asdv234234^&%&^%&^hjsdfb2%%%";
-            var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(mySecret));
+            var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(Secret));
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -57,8 +58,7 @@ namespace WhichTokenApi
 
             try
             {
-                var mySecret = "asdv234234^&%&^%&^hjsdfb2%%%";
-                var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(mySecret));
+                var mySecurityKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(Secret));
 
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var tokenValidationParameters = new TokenValidationParameters

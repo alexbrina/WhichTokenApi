@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -24,6 +25,9 @@ namespace WhichTokenApi
 
         public void ConfigureServices(IServiceCollection services)
         {
+            Jwt.Secret = Configuration.GetValue<string>("Secret")
+                ?? throw new InvalidOperationException("Encryption key not set.");
+
             services.AddAuthentication()
                 .AddJwtBearer("Regular", options =>
                 {
@@ -37,7 +41,7 @@ namespace WhichTokenApi
                         ValidAudience = "WhichTokenApiRegularClient",
                         ValidateLifetime = true,
                         IssuerSigningKey = new SymmetricSecurityKey(
-                            Encoding.UTF8.GetBytes("asdv234234^&%&^%&^hjsdfb2%%%"))
+                            Encoding.UTF8.GetBytes(Jwt.Secret))
                     };
                 })
                 .AddJwtBearer("Alternative", options =>
@@ -52,7 +56,7 @@ namespace WhichTokenApi
                         ValidAudience = "WhichTokenApiAlternativeClient",
                         ValidateLifetime = true,
                         IssuerSigningKey = new SymmetricSecurityKey(
-                            Encoding.UTF8.GetBytes("asdv234234^&%&^%&^hjsdfb2%%%"))
+                            Encoding.UTF8.GetBytes(Jwt.Secret))
                     };
                 });
 
