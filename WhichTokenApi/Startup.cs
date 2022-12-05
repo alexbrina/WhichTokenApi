@@ -8,8 +8,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System;
 using System.Text;
 using System.Threading.Tasks;
+using WhichTokenApi.Authentications;
+using System.Linq;
 
 namespace WhichTokenApi
 {
@@ -33,6 +39,11 @@ namespace WhichTokenApi
             services.AddAuthentication()
                 .AddJwtBearer("Regular", options =>
                 {
+                    // if it is the case, inform url that is going to be used to validate
+                    // authenticity of OpenIdConnect token, normally from the token provider
+                    // options.Authority = "";
+                    options.RequireHttpsMetadata = false;
+                    options.IncludeErrorDetails = true;
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
                         ClockSkew = TokenValidationParameters.DefaultClockSkew,
@@ -44,6 +55,17 @@ namespace WhichTokenApi
                         ValidateLifetime = true,
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(secret))
+                    };
+
+                    // example of jwt event handling
+                    options.Events = new JwtBearerEvents()
+                    {
+                        OnTokenValidated = extractClaimsFromTokenToPrincipal(),
+                        OnAuthenticationFailed = context =>
+                        {
+                            context.Fail(context.Exception);
+                            return Task.CompletedTask;
+                        },
                     };
                 })
                 .AddJwtBearer("Alternative", options =>
@@ -60,22 +82,29 @@ namespace WhichTokenApi
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(secret))
                     };
-                });
+                })
+                .AddScheme<CustomSchemeOptions, CustomSchemeHandler>(
+                    CustomSchemeOptions.Name, options => { });
 
             // now we need to determine the authorization policies by hand
             // notice that there is one default policy
             services.AddAuthorization(options =>
-                {
-                    options.DefaultPolicy = new AuthorizationPolicyBuilder()
-                        .RequireAuthenticatedUser()
-                        .AddAuthenticationSchemes("Regular")
-                        .Build();
+            {
+                options.DefaultPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .AddAuthenticationSchemes("Regular")
+                    .Build();
 
-                    options.AddPolicy("Alternative", new AuthorizationPolicyBuilder()
-                        .RequireAuthenticatedUser()
-                        .AddAuthenticationSchemes("Alternative")
-                        .Build());
-                });
+                options.AddPolicy("Alternative", new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .AddAuthenticationSchemes("Alternative")
+                    .Build());
+
+                options.AddPolicy(CustomSchemeOptions.Name, new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .AddAuthenticationSchemes(CustomSchemeOptions.Name)
+                    .Build());
+            });
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
@@ -109,7 +138,7 @@ namespace WhichTokenApi
             });
         }
 
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IHostEnvironment env)
         {
             if (env.IsDevelopment())
             {
@@ -168,6 +197,41 @@ namespace WhichTokenApi
         {
             var bytes = Encoding.UTF8.GetBytes(data);
             return context.Response.Body.WriteAsync(bytes);
+        }
+
+        private static Func<TokenValidatedContext, Task> extractClaimsFromTokenToPrincipal()
+        {
+            return context =>
+            {
+                try
+                {
+                    var token = (JwtSecurityToken)context.SecurityToken;
+                    var claims = new List<Claim>();
+
+                    var myClaim = token.Claims.FirstOrDefault(
+                        x => x.Type.Equals("iss"));
+
+                    if (myClaim is not null)
+                    {
+                        claims.Add(myClaim);
+                    }
+
+                    if (!claims.Any())
+                    {
+                        context.Fail("Missing Claim!");
+                        return Task.CompletedTask;
+                    }
+
+                    var appIdentity = new ClaimsIdentity(claims);
+                    context.Principal.AddIdentity(appIdentity);
+                }
+                catch (Exception ex)
+                {
+                    context.Fail(ex);
+                }
+
+                return Task.CompletedTask;
+            };
         }
     }
 }

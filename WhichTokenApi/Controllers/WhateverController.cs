@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WhichTokenApi.Authentications;
 
 namespace WhichTokenApi.Controllers
 {
@@ -77,6 +78,14 @@ namespace WhichTokenApi.Controllers
             {
                 return Unauthorized();
             }
+        }
+
+        // here we use the alternative authorization policy
+        [Authorize(Policy = CustomSchemeOptions.Name)]
+        [HttpGet("custom/endpoint")]
+        public IActionResult CustomEndpoint()
+        {
+            return Ok("👍");
         }
     }
 }
